@@ -32,32 +32,25 @@ const ScrapArticles = () => {
   };
 
   const handleSummarize = async (article) => {
-    // If the article is already open and has a summary, don't re-summarize immediately
-    if (selectedArticle?._id === article._id && summarizing) {
-        return;
-    }
-    
-    // Open the modal if it's not already open for this article
+    if (selectedArticle?._id === article._id && summarizing) return;
+
     if (selectedArticle?._id !== article._id) {
-        setSelectedArticle(article);
-        setSummary('');
+      setSelectedArticle(article);
+      setSummary('');
     }
 
     setSummarizing(true);
     setSummary('');
 
     try {
-      // Prioritize content with HTML stripped, or full_text, falling back to existing summary
       let textToSummarize = '';
-      if (article.full_text) {
-          textToSummarize = article.full_text;
-      } else if (article.content_html) {
-          // Simple way to strip HTML tags for summarization API
-          const tempDiv = document.createElement('div');
-          tempDiv.innerHTML = article.content_html;
-          textToSummarize = tempDiv.textContent || tempDiv.innerText || '';
+      if (article.full_text) textToSummarize = article.full_text;
+      else if (article.content_html) {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = article.content_html;
+        textToSummarize = tempDiv.textContent || tempDiv.innerText || '';
       } else {
-          textToSummarize = article.summary || '';
+        textToSummarize = article.summary || '';
       }
 
       if (textToSummarize.length < 100) {
@@ -65,9 +58,7 @@ const ScrapArticles = () => {
         return;
       }
 
-      // Check if the article text is excessively long (Gemini has high limits, but good practice)
-      // Truncate to a reasonable size if needed before sending (e.g., first 10,000 characters)
-      const truncatedText = textToSummarize.substring(0, 10000); 
+      const truncatedText = textToSummarize.substring(0, 10000);
 
       const response = await axios.post(`${API_BASE_URL}/articles/summarize`, {
         text: truncatedText
@@ -88,6 +79,38 @@ const ScrapArticles = () => {
     setSummary('');
   };
 
+  const handleGenerateLinkedInPost = async (article) => {
+    try {
+      let textToUse = '';
+
+      if (article.full_text) textToUse = article.full_text;
+      else if (article.content_html) {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = article.content_html;
+        textToUse = tempDiv.textContent || tempDiv.innerText || '';
+      } else textToUse = article.summary || '';
+
+      if (textToUse.length < 100) {
+        alert("Not enough content to generate a LinkedIn post.");
+        return;
+      }
+
+      const response = await axios.post(`${API_BASE_URL}/articles/generate-post`, {
+        text: textToUse.substring(0, 5000)
+      });
+
+      const postDraft = response.data.post;
+
+      localStorage.setItem("generatedPostDraft", postDraft);
+
+      alert("LinkedIn-style post created! Open Dashboard to edit it.");
+
+    } catch (err) {
+      console.error("LinkedIn post error:", err.response?.data || err);
+      alert("Failed to generate LinkedIn post.");
+    }
+  };
+
   const handleCloseModal = () => {
     setSelectedArticle(null);
     setSummary('');
@@ -98,14 +121,13 @@ const ScrapArticles = () => {
     const title = article.title?.toLowerCase() || '';
     const summaryText = article.summary?.toLowerCase() || '';
     const matchesSearch = title.includes(searchQuery.toLowerCase()) ||
-                            summaryText.includes(searchQuery.toLowerCase());
+                          summaryText.includes(searchQuery.toLowerCase());
     const matchesCategory = categoryFilter === 'All' || article.category === categoryFilter;
     return matchesSearch && matchesCategory;
   });
 
   const categories = ['All', ...new Set(articles.map(a => a.category).filter(Boolean))];
 
-  // Helper to safely format dates
   const formatDate = (dateString) => {
     try {
       return new Date(dateString).toLocaleDateString();
@@ -113,8 +135,6 @@ const ScrapArticles = () => {
       return 'N/A';
     }
   };
-
-  // --- UI Components ---
 
   const LoadingState = () => (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
@@ -143,28 +163,36 @@ const ScrapArticles = () => {
   );
 
   const ArticleModal = ({ article, onClose, onSummarize, isSummarizing, generatedSummary }) => {
-    const isError = generatedSummary && (generatedSummary.startsWith('Failed') || generatedSummary.startsWith('Article text is too short') || generatedSummary.startsWith('Gemini API error'));
-    
+    const isError =
+      generatedSummary &&
+      (generatedSummary.startsWith('Failed') ||
+        generatedSummary.startsWith('Article text is too short') ||
+        generatedSummary.startsWith('Gemini API error'));
+
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          
           {/* Modal Header */}
           <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-start z-10">
             <div className="flex-1 pr-4">
               <h2 className="text-2xl font-bold text-gray-900 mb-2">
                 {article.title}
               </h2>
+
               <div className="flex items-center text-sm text-gray-600 flex-wrap gap-4">
                 <span>
                   <i className="fas fa-newspaper mr-2"></i>
                   {article.source_name}
                 </span>
+
                 {article.published_at && (
                   <span>
                     <i className="fas fa-calendar mr-2"></i>
                     {formatDate(article.published_at)}
                   </span>
                 )}
+
                 {article.word_count && (
                   <span>
                     <i className="fas fa-align-left mr-2"></i>
@@ -173,6 +201,7 @@ const ScrapArticles = () => {
                 )}
               </div>
             </div>
+
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -181,46 +210,56 @@ const ScrapArticles = () => {
             </button>
           </div>
 
-          {/* Modal Content */}
+          {/* Modal Body */}
           <div className="p-6">
-            {/* Summarize Button at Top */}
+
+            {/* Summary Button */}
             <div className="mb-6">
               <button
                 onClick={() => onSummarize(article)}
                 disabled={isSummarizing}
-                className="w-full md:w-auto bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-6 rounded-lg font-medium hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="
+                  w-full md:w-auto py-3 px-6 rounded-xl font-medium 
+                  bg-gradient-to-r from-blue-600 to-purple-600 text-white 
+                  shadow-sm hover:shadow-lg 
+                  transition-all duration-200 disabled:opacity-50
+                "
               >
                 <i className={`fas ${isSummarizing ? 'fa-spinner fa-spin' : 'fa-magic'} mr-2`}></i>
-                {isSummarizing ? 'Generating AI Summary...' : generatedSummary ? 'Regenerate AI Summary' : 'Generate AI Summary'}
+                {isSummarizing ? 'Generating Summary...' : 'Generate Summary'}
               </button>
             </div>
 
-            {/* Summary Section */}
-            {isSummarizing && (
-              <div className="mb-6 p-6 bg-gradient-to-r from-blue-50 to-purple-50 border-l-4 border-blue-600 rounded-lg">
-                <div className="flex items-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-4"></div>
-                  <p className="text-gray-700 font-medium">AI is analyzing the article...</p>
-                </div>
-              </div>
-            )}
-
+            {/* Summary Content */}
             {generatedSummary && !isSummarizing && (
-              <div className={`mb-6 p-6 border-l-4 rounded-lg shadow-md ${isError ? 'bg-red-50 border-red-600' : 'bg-gradient-to-r from-blue-50 to-purple-50 border-blue-600'}`}>
-                <h3 className={`font-bold ${isError ? 'text-red-900' : 'text-blue-900'} mb-3 flex items-center text-lg`}>
+              <div
+                className={`mb-6 p-6 border-l-4 rounded-lg shadow-md ${
+                  isError
+                    ? 'bg-red-50 border-red-600'
+                    : 'bg-gradient-to-r from-blue-50 to-purple-50 border-blue-600'
+                }`}
+              >
+                <h3
+                  className={`font-bold mb-3 flex items-center text-lg ${
+                    isError ? 'text-red-900' : 'text-blue-900'
+                  }`}
+                >
                   <i className={`fas ${isError ? 'fa-exclamation-triangle' : 'fa-magic'} mr-2`}></i>
                   {isError ? 'Summary Error' : 'AI Generated Summary'}
                 </h3>
-                <p className={`leading-relaxed text-base ${isError ? 'text-red-800' : 'text-gray-800'}`}>{generatedSummary}</p>
+
+                <p className={`${isError ? 'text-red-800' : 'text-gray-800'} leading-relaxed`}>
+                  {generatedSummary}
+                </p>
               </div>
             )}
 
-            {/* Full Content */}
+            {/* Full Article */}
             <div className="prose max-w-none">
               <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
-                <i className="fas fa-file-alt mr-2"></i>
-                Full Article
+                <i className="fas fa-file-alt mr-2"></i> Full Article
               </h3>
+
               {article.content_html ? (
                 <div
                   dangerouslySetInnerHTML={{ __html: article.content_html }}
@@ -237,26 +276,32 @@ const ScrapArticles = () => {
               )}
             </div>
 
-            {/* Action Buttons at Bottom */}
+            {/* Footer */}
             <div className="mt-8 pt-6 border-t border-gray-200 flex flex-wrap gap-4">
-              {article.url && typeof article.url === 'string' && article.url.startsWith('http') && (
+
+              {article.url && (
                 <a
                   href={article.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="bg-white border-2 border-blue-600 text-blue-600 py-3 px-6 rounded-lg font-medium hover:bg-blue-50 transition-all duration-300 inline-flex items-center"
+                  className="
+                    inline-flex items-center gap-2 py-3 px-6 rounded-xl 
+                    bg-white border border-blue-600 text-blue-600
+                    hover:bg-blue-50 transition-all duration-200 shadow-sm
+                  "
                 >
-                  <i className="fas fa-external-link-alt mr-2"></i>
-                  View Original Source
+                  <i className="fas fa-external-link-alt"></i> View Source
                 </a>
               )}
 
               <button
                 onClick={onClose}
-                className="bg-gray-100 text-gray-700 py-3 px-6 rounded-lg font-medium hover:bg-gray-200 transition-all duration-300"
+                className="
+                  py-3 px-6 rounded-xl bg-gray-100 text-gray-700 
+                  hover:bg-gray-200 transition-all duration-200
+                "
               >
-                <i className="fas fa-times mr-2"></i>
-                Close
+                <i className="fas fa-times mr-2"></i> Close
               </button>
             </div>
           </div>
@@ -265,22 +310,20 @@ const ScrapArticles = () => {
     );
   };
 
-
-  if (loading) {
-    return <LoadingState />;
-  }
-
-  if (error) {
-    return <ErrorState error={error} retry={fetchArticles} />;
-  }
+  if (loading) return <LoadingState />;
+  if (error) return <ErrorState error={error} retry={fetchArticles} />;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-12 px-4 sm:px-6 lg:px-8 font-inter">
+
       <div className="max-w-7xl mx-auto">
+
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-4">
-            Latest <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Articles</span>
+            Latest <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">
+              Articles
+            </span>
           </h1>
           <p className="text-xl text-gray-600">
             Discover trending articles from top tech and business sources.
@@ -290,26 +333,33 @@ const ScrapArticles = () => {
         {/* Filters */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
           <div className="flex flex-col md:flex-row gap-4">
+
             {/* Search */}
-            <div className="flex-1">
-              <div className="relative">
-                <i className="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                <input
-                  type="text"
-                  placeholder="Search titles or summaries..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150"
-                />
-              </div>
+            <div className="flex-1 relative">
+              <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+              <input
+                type="text"
+                placeholder="Search titles or summaries..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="
+                  w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg
+                  focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                  transition
+                "
+              />
             </div>
 
-            {/* Category Filter */}
+            {/* Category */}
             <div className="md:w-64">
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none transition duration-150"
+                className="
+                  w-full px-4 py-3 border border-gray-300 rounded-lg 
+                  focus:ring-2 focus:ring-blue-500 focus:border-blue-500 
+                  transition
+                "
               >
                 {categories.map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
@@ -318,81 +368,114 @@ const ScrapArticles = () => {
             </div>
           </div>
 
-          <div className="mt-4 text-sm text-gray-600">
-            Showing <span className="font-semibold">{filteredArticles.length}</span> of <span className="font-semibold">{articles.length}</span> total articles
-          </div>
+          <p className="mt-4 text-sm text-gray-600">
+            Showing <span className="font-semibold">{filteredArticles.length}</span> of{' '}
+            <span className="font-semibold">{articles.length}</span> articles
+          </p>
         </div>
 
         {/* Articles Grid */}
-        {filteredArticles.length === 0 ? (
-          <div className="text-center py-12">
-            <i className="fas fa-inbox text-gray-400 text-6xl mb-4"></i>
-            <p className="text-xl text-gray-600">No articles match your current filters.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredArticles.map((article, index) => (
-              <div
-                key={article._id || index}
-                className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden group flex flex-col"
-              >
-                {/* Article Card */}
-                <div className="p-6 flex flex-col flex-grow">
-                  {/* Category Badge */}
-                  {article.category && (
-                    <span className="inline-block px-3 py-1 bg-blue-100 text-blue-600 text-xs font-semibold rounded-full mb-3 self-start">
-                      {article.category}
-                    </span>
-                  )}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredArticles.map((article, index) => (
+            <div
+              key={article._id || index}
+              className="bg-white rounded-xl shadow-md hover:shadow-xl transition p-6 flex flex-col"
+            >
+              {article.category && (
+                <span className="px-3 py-1 bg-blue-100 text-blue-600 text-xs rounded-full mb-3">
+                  {article.category}
+                </span>
+              )}
 
-                  {/* Title */}
-                  <h3 className="text-xl font-bold text-gray-900 mb-3 line-clamp-2 group-hover:text-blue-600 transition-colors flex-grow">
-                    {article.title}
-                  </h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-3 line-clamp-2">
+                {article.title}
+              </h3>
 
-                  {/* Summary */}
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-                    {article.summary || 'No brief summary available.'}
-                  </p>
+              <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                {article.summary || 'No summary available.'}
+              </p>
 
-                  {/* Meta Info */}
-                  <div className="flex items-center text-xs text-gray-500 mb-4 flex-wrap gap-x-4 gap-y-2 pt-2 border-t border-gray-100">
-                    <span className="flex items-center">
-                      <i className="fas fa-newspaper mr-1"></i>
-                      {article.source_name || 'Unknown'}
-                    </span>
-                    {article.published_at && (
-                      <span className="flex items-center">
-                        <i className="fas fa-calendar mr-1"></i>
-                        {formatDate(article.published_at)}
-                      </span>
-                    )}
-                  </div>
+              <div className="flex items-center text-xs text-gray-500 mb-4 gap-4 border-t pt-2">
+                <span className="flex items-center">
+                  <i className="fas fa-newspaper mr-1"></i>
+                  {article.source_name}
+                </span>
 
-                  {/* Actions */}
-                  <div className="flex gap-3 mt-auto">
-                    <button
-                      onClick={() => handleReadMore(article)}
-                      className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-4 rounded-lg font-medium hover:shadow-lg transition-all duration-300 text-sm transform hover:scale-[1.01] shadow-blue-500/50"
-                    >
-                      <i className="fas fa-book-open mr-2"></i>
-                      Read More
-                    </button>
-                    <button
-                      onClick={() => handleSummarize(article)}
-                      className="flex-1 bg-white border-2 border-blue-600 text-blue-600 py-3 px-4 rounded-lg font-medium hover:bg-blue-50 transition-all duration-300 text-sm transform hover:scale-[1.01]"
-                    >
-                      <i className="fas fa-compress-alt mr-2"></i>
-                      AI Summarize
-                    </button>
-                  </div>
-                </div>
+                {article.published_at && (
+                  <span className="flex items-center">
+                    <i className="fas fa-calendar mr-1"></i>
+                    {formatDate(article.published_at)}
+                  </span>
+                )}
               </div>
-            ))}
-          </div>
-        )}
 
-        {/* Article Modal */}
+              {/* Improved Buttons */}
+              <div className="flex items-center gap-3 mt-auto">
+
+                {/* Read More (Light Purple Gradient) */}
+                <button
+                  onClick={() => handleReadMore(article)}
+                  className="
+                    inline-flex items-center gap-2
+                    px-4 py-2.5
+                    rounded-lg text-sm font-medium
+                    text-white
+                    bg-gradient-to-r from-indigo-400 to-purple-500
+                    hover:from-indigo-500 hover:to-purple-600
+                    shadow-sm hover:shadow-md hover:-translate-y-[2px]
+                    transition-all duration-200
+                    whitespace-nowrap
+                  "
+                >
+                  <i className="fas fa-book-open text-white text-sm"></i>
+                  Read More
+                </button>
+
+                {/* AI Summary (Outline Blue) */}
+                <button
+                  onClick={() => handleSummarize(article)}
+                  className="
+                    inline-flex items-center gap-2
+                    px-4 py-2.5
+                    rounded-lg text-sm font-medium
+                    text-blue-600 bg-white 
+                    border border-blue-300
+                    hover:bg-blue-50 
+                    shadow-sm hover:shadow-md hover:-translate-y-[2px]
+                    transition-all duration-200
+                    whitespace-nowrap
+                  "
+                >
+                  <i className="fas fa-bolt text-blue-600 text-sm"></i>
+                  AI Summary
+                </button>
+
+                {/* LinkedIn Post (Compact Width) */}
+                <button
+                  onClick={() => handleGenerateLinkedInPost(article)}
+                  className="
+                    inline-flex items-center gap-1
+                    px-2 py-0
+                    rounded-md text-sm font-medium
+                    bg-[#0A66C2] text-white
+                    hover:bg-[#0654a8]
+                    shadow-sm hover:shadow-md hover:-translate-y-[2px]
+                    transition-all duration-200
+                  "
+                >
+                  <i className="fab fa-linkedin text-white text-base"></i>
+                  Generate Draft
+                </button>
+
+
+              </div>
+
+
+            </div>
+          ))}
+        </div>
+
+        {/* Modal */}
         {selectedArticle && (
           <ArticleModal
             article={selectedArticle}
@@ -402,6 +485,7 @@ const ScrapArticles = () => {
             generatedSummary={summary}
           />
         )}
+
       </div>
     </div>
   );

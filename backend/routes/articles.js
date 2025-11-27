@@ -173,5 +173,61 @@ router.post('/summarize', async (req, res) => {
   }
 });
 
+// Generate LinkedIn-style post
+router.post('/generate-post', async (req, res) => {
+  try {
+    const { text } = req.body;
+
+    if (!text || text.length < 100) {
+      return res.status(400).json({
+        success: false,
+        error: "Not enough content to generate a LinkedIn post."
+      });
+    }
+
+    const GEMINI_URL =
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" +
+      process.env.GEMINI_API_KEY;
+
+    const prompt = `
+      Write a LinkedIn-style post based on the following article content.
+
+      Guidelines:
+      - Professional tone
+      - Strong hook in first line
+      - 2–4 short paragraphs
+      - Add insights or key takeaways
+      - Add 3–5 relevant hashtags at the end
+      - No emojis unless essential
+
+      CONTENT:
+      ${text}
+      `;
+
+    const response = await fetch(GEMINI_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }]
+      })
+    });
+
+    const data = await response.json();
+
+    const post =
+      data?.candidates?.[0]?.content?.parts?.[0]?.text ||
+      "Unable to generate post.";
+
+    res.json({ success: true, post });
+
+  } catch (error) {
+    console.error("LinkedIn post error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to generate LinkedIn post."
+    });
+  }
+});
+
 
 export default router;
