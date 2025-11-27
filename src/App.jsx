@@ -1,29 +1,37 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import './App.css';
+// src/App.jsx
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import "./App.css";
 
-import Navbar from './components/Navbar';
-import Login from './components/Login';
-import Dashboard from './components/Dashboard';
-import ScrapArticles from './components/ScrapArticles';
-import Home from './components/Home';
+// Components
+import Navbar from "./components/Navbar";
+import Login from "./components/Login";
+import Dashboard from "./components/Dashboard";
+import ScrapArticles from "./components/ScrapArticles";
+import Home from "./components/Home";
+import LinkedInCallback from "./components/LinkedInCallback";
 
-import { AuthProvider } from './context/AuthContext';
-import PrivateRoute from './components/PrivateRoute';
+// Auth
+import { AuthProvider } from "./context/AuthContext";
+import PrivateRoute from "./components/PrivateRoute";
 
 function App() {
   return (
-    // Wrap the entire application with AuthProvider
-    // This makes authentication status available to all components inside
     <AuthProvider>
       <BrowserRouter>
         <Navbar />
+
         <Routes>
-          {/* Public Routes - accessible to everyone */}
+          {/* Public Routes */}
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
 
-          {/* Protected Routes - only accessible to authenticated users */}
-          {/* We use a parent <Route element={<PrivateRoute />} /> to protect nested routes */}
+          {/* LinkedIn OAuth Callback */}
+          <Route
+            path="/auth/linkedin/connect-callback"
+            element={<LinkedInCallback />}
+          />
+
+          {/* Protected Routes */}
           <Route element={<PrivateRoute />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/getArticles" element={<ScrapArticles />} />

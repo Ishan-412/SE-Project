@@ -1,9 +1,21 @@
-import React, { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+// src/components/Navbar.jsx
+import React, { useState } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 const Navbar = () => {
-  const { currentUser, logout, loading } = useAuth();
+  const authContext = useAuth();
+
+  // prevent crash while auth is loading
+  if (!authContext) {
+    return (
+      <nav className="navbar bg-white shadow-md p-4">
+        <span>Loading...</span>
+      </nav>
+    );
+  }
+
+  const { currentUser, logout, loading } = authContext;
   const navigate = useNavigate();
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
@@ -11,22 +23,13 @@ const Navbar = () => {
   const handleLogout = async () => {
     try {
       await logout();
-      navigate('/login');
+      navigate("/login");
     } catch (error) {
-      console.error('Failed to log out:', error);
+      console.error("Failed to log out:", error);
     }
   };
 
-  // Don't render until auth state is known
-  if (loading) {
-    return (
-      <nav className="navbar bg-white shadow-md p-4">
-        <div className="animate-pulse flex space-x-4">
-          <div className="h-8 w-32 bg-gray-200 rounded"></div>
-        </div>
-      </nav>
-    );
-  }
+  if (loading) return null;
 
   const isActive = (path) => location.pathname === path;
 
@@ -34,34 +37,38 @@ const Navbar = () => {
     <nav className="navbar bg-white shadow-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Logo/Brand */}
-          <Link to="/" className="flex items-center space-x-2 text-lg font-bold text-gray-800">
+          {/* Brand Logo */}
+          <Link
+            to="/"
+            className="flex items-center space-x-2 text-lg font-bold text-gray-800"
+          >
             <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
               <i className="fas fa-file-alt text-white text-sm"></i>
             </div>
             <span>GenLinked</span>
           </Link>
 
-          {/* Desktop Navigation Links - Only show when logged in */}
+          {/* Desktop Navigation */}
           {currentUser && (
             <div className="hidden md:flex nav-links space-x-4">
               <Link
                 to="/dashboard"
-                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
-                  isActive('/dashboard')
-                    ? 'text-blue-600 bg-blue-50'
-                    : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition ${
+                  isActive("/dashboard")
+                    ? "text-blue-600 bg-blue-50"
+                    : "text-gray-600 hover:text-blue-600 hover:bg-gray-50"
                 }`}
               >
                 <i className="fas fa-tachometer-alt mr-2"></i>
                 Dashboard
               </Link>
+
               <Link
                 to="/getArticles"
-                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
-                  isActive('/getArticles')
-                    ? 'text-blue-600 bg-blue-50'
-                    : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition ${
+                  isActive("/getArticles")
+                    ? "text-blue-600 bg-blue-50"
+                    : "text-gray-600 hover:text-blue-600 hover:bg-gray-50"
                 }`}
               >
                 <i className="fas fa-newspaper mr-2"></i>
@@ -70,8 +77,8 @@ const Navbar = () => {
             </div>
           )}
 
-          {/* Desktop Auth Section */}
-          <div className="hidden md:flex auth-section items-center space-x-4">
+          {/* Desktop Auth */}
+          <div className="hidden md:flex items-center space-x-4">
             {currentUser ? (
               <>
                 <div className="flex items-center space-x-2 text-sm text-gray-600">
@@ -84,13 +91,16 @@ const Navbar = () => {
                   ) : (
                     <i className="fas fa-user-circle text-2xl"></i>
                   )}
+
                   <span className="hidden lg:inline">
-                    {currentUser.displayName || currentUser.email?.split('@')[0]}
+                    {currentUser.displayName ||
+                      currentUser.email?.split("@")[0]}
                   </span>
                 </div>
+
                 <button
                   onClick={handleLogout}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:shadow-lg hover:scale-105 transition-all duration-300"
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:shadow-lg hover:scale-105 transition"
                 >
                   Logout
                 </button>
@@ -98,18 +108,18 @@ const Navbar = () => {
             ) : (
               <Link
                 to="/login"
-                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:shadow-lg hover:scale-105 transition-all duration-300"
+                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:shadow-lg hover:scale-105 transition"
               >
                 Login
               </Link>
             )}
           </div>
 
-          {/* Mobile menu button */}
+          {/* Mobile Menu Button */}
           <div className="md:hidden">
             <button
               onClick={() => setIsOpen(!isOpen)}
-              className="text-gray-600 hover:text-gray-900 focus:outline-none"
+              className="text-gray-600 focus:outline-none"
             >
               {isOpen ? (
                 <i className="fas fa-times text-xl"></i>
@@ -121,32 +131,32 @@ const Navbar = () => {
         </div>
       </div>
 
-      {/* Mobile Navigation Menu */}
+      {/* Mobile Dropdown */}
       {isOpen && (
         <div className="md:hidden border-t border-gray-200">
           <div className="px-2 pt-2 pb-3 space-y-1">
-            {/* Mobile Navigation Links - Only show when logged in */}
             {currentUser && (
               <>
                 <Link
                   to="/dashboard"
                   onClick={() => setIsOpen(false)}
-                  className={`flex items-center px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 ${
-                    isActive('/dashboard')
-                      ? 'text-blue-600 bg-blue-50'
-                      : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+                  className={`flex items-center px-3 py-2 rounded-md text-base transition ${
+                    isActive("/dashboard")
+                      ? "text-blue-600 bg-blue-50"
+                      : "text-gray-600 hover:text-blue-600 hover:bg-gray-50"
                   }`}
                 >
                   <i className="fas fa-tachometer-alt mr-3"></i>
                   Dashboard
                 </Link>
+
                 <Link
                   to="/getArticles"
                   onClick={() => setIsOpen(false)}
-                  className={`flex items-center px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 ${
-                    isActive('/getArticles')
-                      ? 'text-blue-600 bg-blue-50'
-                      : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+                  className={`flex items-center px-3 py-2 rounded-md text-base transition ${
+                    isActive("/getArticles")
+                      ? "text-blue-600 bg-blue-50"
+                      : "text-gray-600 hover:text-blue-600 hover:bg-gray-50"
                   }`}
                 >
                   <i className="fas fa-newspaper mr-3"></i>
@@ -155,7 +165,7 @@ const Navbar = () => {
               </>
             )}
 
-            {/* Mobile Auth Section */}
+            {/* Mobile Auth */}
             <div className="border-t border-gray-200 pt-4 mt-4">
               {currentUser ? (
                 <>
@@ -169,16 +179,18 @@ const Navbar = () => {
                     ) : (
                       <i className="fas fa-user-circle text-2xl"></i>
                     )}
-                    <span className="text-sm font-medium">
-                      {currentUser.displayName || currentUser.email?.split('@')[0]}
+                    <span>
+                      {currentUser.displayName ||
+                        currentUser.email?.split("@")[0]}
                     </span>
                   </div>
+
                   <button
                     onClick={() => {
                       handleLogout();
                       setIsOpen(false);
                     }}
-                    className="w-full mt-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:shadow-lg transition-all duration-300"
+                    className="w-full mt-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:shadow-lg transition"
                   >
                     Logout
                   </button>
@@ -187,7 +199,7 @@ const Navbar = () => {
                 <Link
                   to="/login"
                   onClick={() => setIsOpen(false)}
-                  className="block w-full text-center bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:shadow-lg transition-all duration-300"
+                  className="block w-full text-center bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:shadow-lg transition"
                 >
                   Login
                 </Link>
