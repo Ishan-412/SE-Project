@@ -62,8 +62,17 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`\nServer running on port ${PORT}`);
-  console.log(`API: http://localhost:${PORT}`);
-  console.log(`Health: http://localhost:${PORT}/health\n`);
-});
+// app.listen(PORT, () => {
+//   console.log(`\nServer running on port ${PORT}`);
+//   console.log(`API: http://localhost:${PORT}`);
+//   console.log(`Health: http://localhost:${PORT}/health\n`);
+// });
+
+if (process.env.NODE_ENV !== 'production' && process.env.VERCEL !== '1') {
+  app.listen(PORT, () => {
+    console.log(`\nServer running on port ${PORT}`);
+  });
+}
+
+// Add the export for Vercel's Serverless Function entry point
+export default app;
