@@ -1,10 +1,13 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import articlesRouter from './routes/articles.js';
 
 // Load environment variables FIRST
 dotenv.config();
+
+import articlesRouter from './routes/articles.js';
+
+
 
 // Verify environment variables are loaded
 console.log('\nChecking environment variables...');

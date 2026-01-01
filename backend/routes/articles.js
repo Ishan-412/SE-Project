@@ -21,24 +21,53 @@ const DB_NAME = 'agentic_ai_db';
 const ARTICLES_COLLECTION = 'articles';
 
 // Helper function to safely connect/close client
-async function withDb(callback) {
-  let client;
-  try {
-    console.log('Connecting to MongoDB...');
-    client = await MongoClient.connect(MONGODB_URI);
-    console.log('MongoDB connected');
-    const db = client.db(DB_NAME);
-    return await callback(db);
-  } catch (error) {
-    console.error('Database connection error:', error.message);
-    throw error;
-  } finally {
-    if (client) {
-      await client.close();
-      console.log('MongoDB connection closed');
-    }
-  }
+// async function withDb(callback) {
+//   let client;
+//   try {
+//     console.log('Connecting to MongoDB...');
+//     client = await MongoClient.connect(MONGODB_URI);
+//     console.log('MongoDB connected');
+//     const db = client.db(DB_NAME);
+//     return await callback(db);
+//   } catch (error) {
+//     console.error('Database connection error:', error.message);
+//     throw error;
+//   } finally {
+//     if (client) {
+//       await client.close();
+//       console.log('MongoDB connection closed');
+//     }
+//   }
+// }
+let cachedClient = null;
+let cachedDb = null;
+
+async function connectToDatabase() {
+  if (cachedDb) return cachedDb;
+
+  const client = await MongoClient.connect(process.env.MONGODB_URI);
+  const db = client.db(DB_NAME);
+
+  cachedClient = client;
+  cachedDb = db;
+  return db;
 }
+
+// Update your routes to use it like this:
+router.get('/', async (req, res) => {
+  try {
+    const db = await connectToDatabase();
+    const articles = await db.collection(ARTICLES_COLLECTION)
+      .find({})
+      .sort({ created_at: -1 })
+      .limit(50)
+      .toArray();
+    
+    res.json({ success: true, articles });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 // Get all articles
 router.get('/', async (req, res) => {
